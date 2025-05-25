@@ -106,21 +106,15 @@ StandardViewer::~StandardViewer() {
 }
 
 void StandardViewer::main_menu(){
-  std::cout << "main_menu() start" << std::endl;
   bool start_open_map = false || !init_map_path.empty();
   bool start_close_map = false;
   bool start_save_map = false;
   bool start_export_map = false;
-  std::cout << "main_menu() 1" << std::endl;
 
   if (ImGui::BeginMainMenuBar()) {
-    std::cout << "main_menu() 2" << std::endl;
     if (ImGui::BeginMenu("File")) {
-      std::cout << "main_menu() 3" << std::endl;
       if (!async_global_mapping) {  // if a previously loaded map does not yet exist
-        std::cout << "main_menu() 4" << std::endl;
-        if (ImGui::MenuItem("Open New Map")) {
-          std::cout << "main_menu() 5" << std::endl;
+        if (ImGui::MenuItem("Open Map")) {
           start_open_map = true;
         }
       /*
@@ -130,7 +124,6 @@ void StandardViewer::main_menu(){
         }
       */
       }
-      std::cout << "main_menu() 6" << std::endl;
 
       /*
       if (ImGui::MenuItem("Close Map")) {
@@ -155,53 +148,41 @@ void StandardViewer::main_menu(){
       */
 
       if (ImGui::MenuItem("Quit")) {
-        std::cout << "main_menu() 7" << std::endl;
         if (pfd::message("warning", "quit?").result() == pfd::button::ok) {
           request_to_terminate = true;
         }
       }
-      std::cout << "main_menu() 8" << std::endl;
 
       ImGui::EndMenu();
     }
-    std::cout << "main_menu() 9" << std::endl;
 
     ImGui::EndMainMenuBar();
   }
 
-  std::cout << "main_menu() 10" << std::endl;
   // open map
   if (start_open_map) {
-    std::cout << "main_menu() 11" << std::endl;
     logger->debug("open map");
     std::string map_path;
 
     guik::RecentFiles recent_files("offline_viewer_open");
     if (init_map_path.empty()) {
-      std::cout << "main_menu() 12" << std::endl;
       map_path = pfd::select_folder("Select a dump directory", recent_files.most_recent()).result();
     } else {
-      std::cout << "main_menu() 13" << std::endl;
       map_path = init_map_path;
       init_map_path.clear();
     }
-    std::cout << "main_menu() 14" << std::endl;
 
     if (!map_path.empty()) {
-      std::cout << "main_menu() 15" << std::endl;
       logger->debug("open map from {}", map_path);
       recent_files.push(map_path);
 
       if (boost::filesystem::exists(map_path + "/config")) {
-        std::cout << "main_menu() 16" << std::endl;
         logger->info("Use config from {}", map_path + "/config");
         GlobalConfig::instance(map_path + "/config", true);
       } else {
-        std::cout << "main_menu() 17" << std::endl;
         logger->warn("No config found in {}", map_path);
       }
 
-      std::cout << "main_menu() 18" << std::endl;
       const Config config_ros(GlobalConfig::get_config_path("config_ros"));
       const std::vector<std::string> ext_module_names = config_ros.param<std::vector<std::string>>("glim_ros", "extension_modules", {});
       for (const auto& name : ext_module_names) {
@@ -230,20 +211,14 @@ void StandardViewer::main_menu(){
       });
     }
   }
-  std::cout << "main_menu() 20" << std::endl;
   auto open_result = progress_modal->run<std::shared_ptr<GlobalMapping>>("open");
-  std::cout << "main_menu() 21" << std::endl;
   if (open_result) {
-  std::cout << "main_menu() 22" << std::endl;
     if (!(*open_result)) {
-  std::cout << "main_menu() 23" << std::endl;
       pfd::message("Error", "Failed to load map").result();
     } else {
-  std::cout << "main_menu() 24" << std::endl;
       async_global_mapping.reset(new glim::AsyncGlobalMapping(*open_result, 1e6));
     }
   }
-  std::cout << "main_menu() 25" << std::endl;
 
   /*
   // save map
@@ -282,7 +257,6 @@ void StandardViewer::main_menu(){
     }
   }
   */
-  std::cout << "main_menu() 26" << std::endl;
 }
 
 /*
