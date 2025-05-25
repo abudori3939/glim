@@ -34,6 +34,11 @@
 #include <guik/spdlog_sink.hpp>
 #include <guik/viewer/light_viewer.hpp>
 
+#include <boost/filesystem.hpp>
+#include <portable-file-dialogs.h>
+#include <guik/recent_files.hpp>
+#include <guik/progress_modal.hpp>
+
 namespace glim {
 
 StandardViewer::StandardViewer() : logger(create_module_logger("viewer")) {
@@ -99,6 +104,207 @@ StandardViewer::~StandardViewer() {
     thread.join();
   }
 }
+
+void StandardViewer::main_menu(){
+  std::cout << "main_menu() start" << std::endl;
+  bool start_open_map = false || !init_map_path.empty();
+  bool start_close_map = false;
+  bool start_save_map = false;
+  bool start_export_map = false;
+  std::cout << "main_menu() 1" << std::endl;
+
+  if (ImGui::BeginMainMenuBar()) {
+    std::cout << "main_menu() 2" << std::endl;
+    if (ImGui::BeginMenu("File")) {
+      std::cout << "main_menu() 3" << std::endl;
+      if (!async_global_mapping) {  // if a previously loaded map does not yet exist
+        std::cout << "main_menu() 4" << std::endl;
+        if (ImGui::MenuItem("Open New Map")) {
+          std::cout << "main_menu() 5" << std::endl;
+          start_open_map = true;
+        }
+      /*
+      } else {
+        if (ImGui::MenuItem("Open Additional Map")) {
+          start_open_map = true;
+        }
+      */
+      }
+      std::cout << "main_menu() 6" << std::endl;
+
+      /*
+      if (ImGui::MenuItem("Close Map")) {
+        if (pfd::message("Warning", "Close the map?").result() == pfd::button::ok) {
+          start_close_map = true;
+        }
+      }
+      */
+
+      /*
+      if (ImGui::BeginMenu("Save")) {
+        if (ImGui::MenuItem("Save Map")) {
+          start_save_map = true;
+        }
+
+        if (ImGui::MenuItem("Export Points")) {
+          start_export_map = true;
+        }
+
+        ImGui::EndMenu();
+      }
+      */
+
+      if (ImGui::MenuItem("Quit")) {
+        std::cout << "main_menu() 7" << std::endl;
+        if (pfd::message("warning", "quit?").result() == pfd::button::ok) {
+          request_to_terminate = true;
+        }
+      }
+      std::cout << "main_menu() 8" << std::endl;
+
+      ImGui::EndMenu();
+    }
+    std::cout << "main_menu() 9" << std::endl;
+
+    ImGui::EndMainMenuBar();
+  }
+
+  std::cout << "main_menu() 10" << std::endl;
+  // open map
+  if (start_open_map) {
+    std::cout << "main_menu() 11" << std::endl;
+    logger->debug("open map");
+    std::string map_path;
+
+    guik::RecentFiles recent_files("offline_viewer_open");
+    if (init_map_path.empty()) {
+      std::cout << "main_menu() 12" << std::endl;
+      map_path = pfd::select_folder("Select a dump directory", recent_files.most_recent()).result();
+    } else {
+      std::cout << "main_menu() 13" << std::endl;
+      map_path = init_map_path;
+      init_map_path.clear();
+    }
+    std::cout << "main_menu() 14" << std::endl;
+
+    if (!map_path.empty()) {
+      std::cout << "main_menu() 15" << std::endl;
+      logger->debug("open map from {}", map_path);
+      recent_files.push(map_path);
+
+      if (boost::filesystem::exists(map_path + "/config")) {
+        std::cout << "main_menu() 16" << std::endl;
+        logger->info("Use config from {}", map_path + "/config");
+        GlobalConfig::instance(map_path + "/config", true);
+      } else {
+        std::cout << "main_menu() 17" << std::endl;
+        logger->warn("No config found in {}", map_path);
+      }
+
+      std::cout << "main_menu() 18" << std::endl;
+      const Config config_ros(GlobalConfig::get_config_path("config_ros"));
+      const std::vector<std::string> ext_module_names = config_ros.param<std::vector<std::string>>("glim_ros", "extension_modules", {});
+      for (const auto& name : ext_module_names) {
+        if (name.find("viewer") != std::string::npos || name.find("monitor") != std::string::npos) {
+          continue;
+        }
+        if (imported_shared_libs.count(name)) {
+          logger->debug("Extension module {} already loaded", name);
+          continue;
+        }
+
+        logger->info("Export classes from {}", name);
+        ExtensionModule::export_classes(name);
+        imported_shared_libs.insert(name);
+      }
+
+      // if a map is already loaded, use existing map to load new map into
+      std::shared_ptr<GlobalMapping> global_mapping;
+      if (async_global_mapping) {
+        logger->info("global map already exists, loading new map into existing global map");
+        global_mapping = std::dynamic_pointer_cast<GlobalMapping>(async_global_mapping->get_global_mapping());
+      }
+
+      progress_modal->open<std::shared_ptr<GlobalMapping>>("open", [this, map_path, global_mapping](guik::ProgressInterface& progress) {
+        return load_map(progress, map_path, global_mapping);
+      });
+    }
+  }
+  std::cout << "main_menu() 19" << std::endl;
+  auto open_result = progress_modal->run<std::shared_ptr<GlobalMapping>>("open");
+  if (open_result) {
+    if (!(*open_result)) {
+      pfd::message("Error", "Failed to load map").result();
+    } else {
+      async_global_mapping.reset(new glim::AsyncGlobalMapping(*open_result, 1e6));
+    }
+  }
+
+  /*
+  // save map
+  if (start_save_map) {
+    guik::RecentFiles recent_files("offline_viewer_save");
+    const std::string path = pfd::select_folder("Select a directory to save the map", recent_files.most_recent()).result();
+    if (!path.empty()) {
+      recent_files.push(path);
+      progress_modal->open<bool>("save", [this, path](guik::ProgressInterface& progress) { return save_map(progress, path); });
+    }
+  }
+  auto save_result = progress_modal->run<bool>("save");
+
+  // export map
+  if (start_export_map) {
+    guik::RecentFiles recent_files("offline_viewer_export");
+    const std::string path = pfd::save_file("Select the file destination", recent_files.most_recent(), {"PLY", "*.ply"}).result();
+    if (!path.empty()) {
+      recent_files.push(path);
+      progress_modal->open<bool>("export", [this, path](guik::ProgressInterface& progress) { return export_map(progress, path); });
+    }
+  }
+  auto export_result = progress_modal->run<bool>("export");
+  */
+
+  /*
+  // close map
+  if (start_close_map) {
+    if (async_global_mapping) {
+      logger->info("Closing map");
+      async_global_mapping->join();
+      async_global_mapping.reset();
+      clear();
+    } else {
+      logger->warn("No map to close");
+    }
+  }
+  */
+}
+
+/*
+std::shared_ptr<glim::GlobalMapping> StandardViewer::load_map(guik::ProgressInterface& progress, const std::string& path, std::shared_ptr<GlobalMapping> global_mapping) {
+  progress.set_title("Load map");
+  progress.set_text("Now loading");
+  progress.set_maximum(1);
+
+  if (global_mapping == nullptr) {  // if no map is loaded yet initialize new GlobalMapping
+    glim::GlobalMappingParams params;
+    params.isam2_relinearize_skip = 1;
+    params.isam2_relinearize_thresh = 0.0;
+
+    const auto result = pfd::message("Confirm", "Do optimization?", pfd::choice::yes_no).result();
+    params.enable_optimization = (result == pfd::button::ok) || (result == pfd::button::yes);
+
+    logger->info("enable_optimization={}", params.enable_optimization);
+    global_mapping.reset(new glim::GlobalMapping(params));
+  }
+
+  if (!global_mapping->load(path)) {
+    logger->error("failed to load {}", path);
+    return nullptr;
+  }
+
+  return global_mapping;
+}
+*/
 
 bool StandardViewer::ok() const {
   return !request_to_terminate;
@@ -646,10 +852,14 @@ void StandardViewer::viewer_loop() {
   submap_viewer->set_draw_xy_grid(false);
   submap_viewer->use_topdown_camera_control(80.0);
 
+
   viewer->register_drawable_filter("selection", [this](const std::string& name) { return drawable_filter(name); });
   viewer->register_ui_callback("selection", [this] { drawable_selection(); });
   viewer->register_ui_callback("logging", guik::create_logger_ui(glim::get_ringbuffer_sink(), 0.5));
 
+  // Main menuの追加
+  viewer->register_ui_callback("main_menu", [this] { main_menu(); });
+  
   while (!kill_switch) {
     if (!viewer->spin_once()) {
       request_to_terminate = true;
