@@ -230,15 +230,20 @@ void StandardViewer::main_menu(){
       });
     }
   }
-  std::cout << "main_menu() 19" << std::endl;
+  std::cout << "main_menu() 20" << std::endl;
   auto open_result = progress_modal->run<std::shared_ptr<GlobalMapping>>("open");
+  std::cout << "main_menu() 21" << std::endl;
   if (open_result) {
+  std::cout << "main_menu() 22" << std::endl;
     if (!(*open_result)) {
+  std::cout << "main_menu() 23" << std::endl;
       pfd::message("Error", "Failed to load map").result();
     } else {
+  std::cout << "main_menu() 24" << std::endl;
       async_global_mapping.reset(new glim::AsyncGlobalMapping(*open_result, 1e6));
     }
   }
+  std::cout << "main_menu() 25" << std::endl;
 
   /*
   // save map
@@ -277,6 +282,7 @@ void StandardViewer::main_menu(){
     }
   }
   */
+  std::cout << "main_menu() 26" << std::endl;
 }
 
 /*
@@ -859,6 +865,7 @@ void StandardViewer::viewer_loop() {
 
   // Main menuの追加
   viewer->register_ui_callback("main_menu", [this] { main_menu(); });
+  progress_modal.reset(new guik::ProgressModal("standard_viewer_progress"));
   
   while (!kill_switch) {
     if (!viewer->spin_once()) {
