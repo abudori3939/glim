@@ -6,7 +6,10 @@
 #include <boost/shared_ptr.hpp>
 #include <glim/mapping/global_mapping_base.hpp>
 
+#include <gtsam/linear/NoiseModel.h> // Added this include
+
 namespace gtsam {
+class Pose3; // Forward declaration
 class Values;
 class NonlinearFactorGraph;
 }  // namespace gtsam
@@ -71,6 +74,13 @@ public:
 
   virtual void save(const std::string& path) override;
   virtual std::vector<Eigen::Vector4d> export_points() override;
+
+  /**
+   * @brief Set an initial pose prior for the first submap (X(0)).
+   * @param initial_pose  The initial pose estimate.
+   * @param noise_model   The noise model for this prior.
+   */
+  void set_initial_pose_prior(const gtsam::Pose3& initial_pose, const gtsam::SharedNoiseModel& noise_model);
 
   /**
    * @brief Load a mapping result from a dumped directory

@@ -1,5 +1,8 @@
 #include <glim/mapping/global_mapping.hpp>
 
+#include <gtsam/slam/PriorFactor.h>
+#include <gtsam/geometry/Pose3.h> // For gtsam::Pose3
+
 #include <map>
 #include <unordered_set>
 #include <spdlog/spdlog.h>
@@ -1012,6 +1015,39 @@ std::pair<gtsam::NonlinearFactorGraph, gtsam::Values> GlobalMapping::recover_gra
   logger->info("recovering done");
 
   return {new_factors, new_values};
+}
+
+void GlobalMapping::set_initial_pose_prior(const gtsam::Pose3& initial_pose, const gtsam::SharedNoiseModel& noise_model) {
+  logger->info("Setting initial pose prior for X(0)");
+
+  // Add the prior factor for X(0)
+  new_factors->emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(X(0), initial_pose, noise_model);
+
+  // Ensure X(0) has an initial estimate
+  if (!new_values->exists(X(0))) {
+    logger->debug("Adding initial estimate for X(0) in new_values");
+    new_values->insert(X(0), initial_pose);
+  } else {
+    // Optionally, update existing X(0) if it's desired, or log a warning/info
+    logger->debug("Updating existing initial estimate for X(0) in new_values");
+    new_values->update(X(0), initial_pose);
+  }
+
+  // It might be good to check if there's already a prior on X(0) in isam2 or new_factors
+  // and handle it (e.g. remove old one, or error out).
+  // For now, we'll assume this function is called at a point where it's safe to add a new prior.
+
+  Callbacks::on_smoother_update(*isam2, *new_factors, *new_values);
+  auto result = update_isam2(*new_factors, *new_values);
+  Callbacks::on_smoother_update_result(*isam2, result);
+
+  new_factors.reset(new gtsam::NonlinearFactorGraph);
+  new_values.reset(new gtsam::Values);
+
+  update_submaps();
+  Callbacks::on_update_submaps(submaps); // Assuming this callback is appropriate here
+
+  logger->info("Initial pose prior for X(0) has been set and optimizer updated.");
 }
 
 }  // namespace glim
