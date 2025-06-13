@@ -6,9 +6,10 @@
 #include <boost/shared_ptr.hpp>
 #include <glim/mapping/global_mapping_base.hpp>
 
+#include <gtsam/linear/NoiseModel.h> // Added this include
+
 namespace gtsam {
 class Pose3; // Forward declaration
-class SharedNoiseModel; // Forward declaration
 class Values;
 class NonlinearFactorGraph;
 }  // namespace gtsam
