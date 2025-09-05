@@ -1,0 +1,24 @@
+{
+  "localization": {
+    "map_path": "/tmp/dump",
+    "initial_pose": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "roll": 0.0,
+      "pitch": 0.0,
+      "yaw": 0.0
+    },
+    "use_rviz_initial_pose": true,
+    "enable_imu": true,
+    "enable_sub_mapping": false,
+    "enable_global_mapping": true
+  },
+  "odometry_estimation": {
+    "so_name": "libodometry_estimation_gpu.so"
+  },
+  "global_mapping": {
+    "so_name": "libglobal_mapping.so",
+    "enable_gpu": true
+  }
+}
