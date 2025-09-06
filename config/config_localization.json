@@ -1,6 +1,6 @@
 {
   "localization": {
-    "map_path": "/tmp/dump",
+    "map_path": "/home/yuta/data/glim/kasukabe",
     "initial_pose": {
       "x": 0.0,
       "y": 0.0,
@@ -9,7 +9,7 @@
       "pitch": 0.0,
       "yaw": 0.0
     },
-    "use_rviz_initial_pose": true,
+    "use_rviz_initial_pose": false,
     "enable_imu": true,
     "enable_sub_mapping": false,
     "enable_global_mapping": true
