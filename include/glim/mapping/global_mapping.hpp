@@ -52,6 +52,9 @@ public:
   double isam2_relinearize_thresh;
 
   double init_pose_damping_scale;
+  
+  // 純粋ローカリゼーションモード設定
+  bool pure_localization_mode;
 };
 
 /**
@@ -108,5 +111,8 @@ private:
   std::unique_ptr<gtsam_points::ISAM2Ext> isam2;
 
   std::shared_ptr<void> tbb_task_arena;
+  
+  // ローカリゼーション状態管理
+  bool localization_initialized_;   // 初期位置確定完了フラグ
 };
 }  // namespace glim

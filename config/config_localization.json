@@ -19,6 +19,7 @@
   },
   "global_mapping": {
     "so_name": "libglobal_mapping.so",
-    "enable_gpu": true
+    "enable_gpu": true,
+    "pure_localization_mode": true
   }
 }
