@@ -75,6 +75,9 @@ GlobalMappingParams::GlobalMappingParams() {
   isam2_relinearize_thresh = config.param<double>("global_mapping", "isam2_relinearize_thresh", 0.1);
 
   init_pose_damping_scale = config.param<double>("global_mapping", "init_pose_damping_scale", 1e10);
+  
+  // 純粋ローカリゼーションモード設定
+  pure_localization_mode = config.param<bool>("global_mapping", "pure_localization_mode", false);
 }
 
 GlobalMappingParams::~GlobalMappingParams() {}
@@ -88,6 +91,9 @@ GlobalMapping::GlobalMapping(const GlobalMappingParams& params) : params(params)
 
   session_id = 0;
   imu_integration.reset(new IMUIntegration);
+  
+  // ローカリゼーション状態管理の初期化
+  localization_initialized_ = false;
 
   new_values.reset(new gtsam::Values);
   new_factors.reset(new gtsam::NonlinearFactorGraph);
@@ -364,13 +370,33 @@ void GlobalMapping::optimize() {
 
   logger->debug("|new_factors|={} |new_values|={}", new_factors->size(), new_values->size());
 
-  Callbacks::on_smoother_update(*isam2, *new_factors, *new_values);
-  auto result = update_isam2(*new_factors, *new_values);
+  // 純粋ローカリゼーションモードの処理分岐
+  if (params.pure_localization_mode) {
+    if (!localization_initialized_) {
+      // 初回のみ: 既存マップとの接続を実行
+      logger->info("Initializing localization: connecting to existing map");
+      Callbacks::on_smoother_update(*isam2, *new_factors, *new_values);
+      auto result = update_isam2(*new_factors, *new_values);
+      Callbacks::on_smoother_update_result(*isam2, result);
+      
+      localization_initialized_ = true;
+      logger->info("Localization initialized - FactorGraph updates now disabled");
+    } else {
+      // 2回目以降: FactorGraph更新を完全スキップ
+      logger->debug("Pure localization: FactorGraph update skipped, matching only");
+      // 新規サブマップは作成されるが、FactorGraphには登録されない
+      // マッチングによる位置推定は継続される
+    }
+  } else {
+    // 通常SLAMモード
+    Callbacks::on_smoother_update(*isam2, *new_factors, *new_values);
+    auto result = update_isam2(*new_factors, *new_values);
+    Callbacks::on_smoother_update_result(*isam2, result);
+  }
 
+  // 共通処理: バッファクリア
   new_factors.reset(new gtsam::NonlinearFactorGraph);
   new_values.reset(new gtsam::Values);
-
-  Callbacks::on_smoother_update_result(*isam2, result);
 
   update_submaps();
   Callbacks::on_update_submaps(submaps);
